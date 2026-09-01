@@ -20,9 +20,11 @@ jobs:
         with:
           enable-cache: true
       - uses: dtolnay/rust-toolchain@stable
-      - name: Sync (builds the extension)
-        run: uv sync --extra dev --python ${{ matrix.python }}
-      - run: uv run pytest
+      # One command, not a sync followed by a run: .python-version pins 3.12 for local work,
+      # so a separate `uv run` would go looking for that interpreter and find an environment
+      # without the dev dependencies in it.
+      - name: Test (uv builds the extension)
+        run: uv run --extra dev --python ${{ matrix.python }} pytest
 
   lint:
     name: lint
