@@ -23,7 +23,10 @@ jobs:
           - { runner: ubuntu-latest, target: x86_64 }
           - { runner: ubuntu-latest, target: aarch64 }
           - { runner: macos-latest, target: aarch64 }
-          - { runner: macos-13, target: x86_64 }
+          # Cross-compiled on the arm runner: GitHub has retired macos-13, and a job asking
+          # for it sits in the queue forever rather than failing — which would hang a release
+          # rather than break it, since publish waits for every wheel.
+          - { runner: macos-latest, target: x86_64 }
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
