@@ -126,6 +126,23 @@ node tools/gen_vectors.mjs
 
 `tools/bench.py` reproduces the numbers above.
 
+## Releasing
+
+By tag, not by merge. Most merges here are documentation and CI, and PyPI refuses a second
+upload of the same version — publishing on merge would mean either a version bump per commit
+or a release job that fails as a matter of course.
+
+```bash
+# bump `version` in pyproject.toml, note it in CHANGELOG.md, merge, then:
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The workflow builds wheels for linux and macOS on both architectures plus an sdist, checks
+that the tag and the version in pyproject.toml say the same thing, and stops in front of the
+upload: that step lives in a `pypi` environment, so it waits for an approval and for the
+`PYPI_API_TOKEN` secret kept there. `workflow_dispatch` runs everything except the upload,
+which is how the pipeline gets tested without releasing anything.
+
 ## Provenance and licence
 
 MIT (`LICENSE`). Compression comes from the [`lz-str`](https://crates.io/crates/lz-str)

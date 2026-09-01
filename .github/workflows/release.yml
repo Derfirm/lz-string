@@ -13,6 +13,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  version:
+    # A tag and a pyproject that disagree produce wheels named after one and a release named
+    # after the other, or an upload PyPI rejects because that version is already there. The
+    # version lives in pyproject.toml; the tag has to say the same thing.
+    name: the tag matches the version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: v$TAG == version in pyproject.toml
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          echo "tag says $tag, pyproject says $declared"
+          test "$tag" = "$declared"
+
   wheels:
     name: wheels ${{ matrix.platform.target }} on ${{ matrix.platform.runner }}
     runs-on: ${{ matrix.platform.runner }}
@@ -68,7 +84,7 @@ jobs:
 
   publish:
     name: publish to PyPI
-    needs: [wheels, sdist]
+    needs: [version, wheels, sdist]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     # An environment so the upload waits for a human, and so the token lives in one place.
