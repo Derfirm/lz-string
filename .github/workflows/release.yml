@@ -45,7 +45,7 @@ jobs:
           - { runner: macos-latest, target: x86_64 }
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - name: Build
         uses: PyO3/maturin-action@v1
         with:
