@@ -102,8 +102,11 @@ jobs:
           merge-multiple: true
           path: dist
       # `maturin upload` still works but is deprecated and slated for removal; this is the
-      # action PyPI itself documents.
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      # action PyPI itself documents. Pinned to a commit rather than to `release/v1`, which
+      # is a branch: this step holds the credential that can publish under our name, and a
+      # moving reference means whatever lands there tomorrow holds it too. The SHA is
+      # v1.14.2; dependabot opens a pull request when there is a newer one.
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           packages-dir: dist
           password: ${{ secrets.PYPI_API_TOKEN }}

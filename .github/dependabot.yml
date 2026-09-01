@@ -1,0 +1,12 @@
+# So the pinned action SHAs above do not rot: dependabot proposes the bump, a human reads
+# the diff. Monthly, because this repository has four dependencies and none of them move fast.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: cargo
+    directory: /rust
+    schedule:
+      interval: monthly
