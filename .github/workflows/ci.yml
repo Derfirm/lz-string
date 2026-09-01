@@ -52,10 +52,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm --prefix tools ci || npm --prefix tools install
-      - run: node tools/gen_vectors.mjs
+      - run: npm --prefix tools ci
+      - run: node tools/gen_vectors.mjs /tmp/regenerated.jsonl.gz
       - name: Nothing changed
-        run: git diff --exit-code -- tests/data/vectors.jsonl.gz
+        # The *content* is compared, not the gzip bytes: those depend on the zlib the
+        # runner's node was built with, and would fail this job for a reason that has
+        # nothing to do with the vectors.
+        run: |
+          gzip -dc tests/data/vectors.jsonl.gz | sha256sum | cut -d" " -f1 > /tmp/committed.sha
+          gzip -dc /tmp/regenerated.jsonl.gz  | sha256sum | cut -d" " -f1 > /tmp/fresh.sha
+          diff /tmp/committed.sha /tmp/fresh.sha
 
   deployment-image:
     # The package is installed into python:3.12-slim-bullseye, whose glibc is older than any

@@ -44,7 +44,7 @@ jobs:
         run: |
           uv venv --python 3.12
           uv pip install --no-index --find-links dist lz-string
-          uv run --no-project python -c "import lz_string as lz; assert lz.decompress_from_base64(lz.compress_to_base64('ok')) == 'ok'"
+          .venv/bin/python -c "import lz_string as lz; assert lz.decompress_from_base64(lz.compress_to_base64('ok')) == 'ok'"
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.platform.runner }}-${{ matrix.platform.target }}

@@ -6,3 +6,4 @@ rust/target/
 tools/node_modules/
 # The built extension is an artefact, not a source: see tools/build_rust.sh
 src/lz_string/*.so
+dist/

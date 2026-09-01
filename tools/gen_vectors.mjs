@@ -6,6 +6,7 @@
 //
 //   npm --prefix tools install       # once
 //   node tools/gen_vectors.mjs       # -> tests/data/vectors.jsonl.gz
+//   node tools/gen_vectors.mjs OUT   # ... or wherever
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
@@ -15,7 +16,9 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const LZ = require("lz-string");
 const version = require("lz-string/package.json").version;
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "tests", "data", "vectors.jsonl.gz");
+// An argument lets CI regenerate somewhere else and compare, instead of dirtying the tree.
+const OUT = process.argv[2]
+  || join(dirname(fileURLToPath(import.meta.url)), "..", "tests", "data", "vectors.jsonl.gz");
 
 // A deterministic PRNG: the corpus must reproduce byte for byte.
 let seed = 20260901;
