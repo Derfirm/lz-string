@@ -28,8 +28,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import lz_string as lz  # noqa: E402
-from lz_string import _reference  # noqa: E402
+import lz_string as lz
+from lz_string import _reference
 
 IMPLEMENTATIONS = (("shipped", lz), ("reference", _reference))
 TRANSPORTS = {
@@ -133,7 +133,7 @@ def check_damaged(count: int, seed: int) -> int:
     disagreed = 0
     for _ in range(count):
         payload = damage(rng, good)
-        for _, (_, decompress) in TRANSPORTS.items():
+        for _, decompress in TRANSPORTS.values():
             answers = []
             for name, module in IMPLEMENTATIONS:
                 try:
