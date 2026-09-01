@@ -64,7 +64,7 @@ fn utf16_value(unit: u16) -> u32 {
 
 /// UTF-16LE bytes in, code units out.
 ///
-/// An odd length is refused rather than rounded down. `chunks_exact` would drop the stray
+/// An odd length is refused rather than rounded down. Chunking alone would drop the stray
 /// byte, and compressing "A" would then produce the compression of "" — a silent wrong
 /// answer on a boundary the Python wrapper cannot currently produce but a caller of the
 /// extension can.
@@ -74,9 +74,11 @@ fn code_units(buf: &[u8]) -> PyResult<impl Iterator<Item = u16> + '_> {
             "expected UTF-16LE bytes, whose length is even",
         ));
     }
-    Ok(buf
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]])))
+    let (pairs, rest) = buf.as_chunks::<2>();
+    debug_assert!(rest.is_empty(), "the length was checked just above");
+    Ok(pairs
+        .iter()
+        .map(|&[low, high]| u16::from_le_bytes([low, high])))
 }
 
 fn to_units(buf: &[u8]) -> PyResult<Vec<u16>> {
