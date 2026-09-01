@@ -138,10 +138,22 @@ git tag v0.1.0 && git push origin v0.1.0
 ```
 
 The workflow builds wheels for linux and macOS on both architectures plus an sdist, checks
-that the tag and the version in pyproject.toml say the same thing, and stops in front of the
-upload: that step lives in a `pypi` environment, so it waits for an approval and for the
-`PYPI_API_TOKEN` secret kept there. `workflow_dispatch` runs everything except the upload,
-which is how the pipeline gets tested without releasing anything.
+that the tag and the version in pyproject.toml agree, and only then uploads.
+`workflow_dispatch` runs everything except the upload, which is how the pipeline is tested
+without releasing anything.
+
+The upload needs a credential, and there are two ways to give it one. Either works; the
+first stores nothing.
+
+**Trusted publishing.** On PyPI, add a pending publisher for the project name with owner
+`Derfirm`, repository `lz-string`, workflow `release.yml`, environment `pypi`. Nothing to
+configure here — with no `PYPI_API_TOKEN` secret set, the publish step already exchanges a
+short-lived OIDC token, which is what it tries today and what fails with "Trusted publishing
+exchange failure" until the publisher exists.
+
+**A token.** Create an environment named `pypi` in the repository settings, put an API token
+in it as `PYPI_API_TOKEN`, and re-run the publish job of the tagged release. Protection
+rules on that environment are where you add an approval step if you want one.
 
 ## Provenance and licence
 
