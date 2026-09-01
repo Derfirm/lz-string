@@ -232,9 +232,9 @@ which works, but leaves the shipped package half implemented in the slow languag
 the inputs where being right matters. The decoder in `rust/src/decode.rs` is about 120 lines
 and has none of the three.
 
-Both corrections live in `src/lz_string/_rust.py` and are pinned by
-`tests/test_backends.py`, so a future release of the crate that fixes them fails loudly
-rather than being corrected twice.
+The one correction still applied to the crate — the base64 padding — lives where the
+padding is produced, in `rust/src/lib.rs`, and is pinned by `tests/test_parity.py`, so a
+release that fixes it upstream fails loudly rather than being corrected twice.
 
 ## 8. Regenerating the corpus
 
@@ -254,8 +254,9 @@ inputs, incompressible noise, and payloads up to 250 KB.
 |---|---|---|
 | golden corpus vs. node | 1202 vectors x 4 transports x 2 directions x 2 implementations | identical |
 | real production saves | 38 files (plain MV, obfuscated MV, Twine incl. the surrogate journal, up to 1.8 MB), decompress **and** recompress | identical |
-| differential fuzz vs. node | 5000 generated inputs x 4 transports x 2 implementations | identical |
-| malformed-input fuzz | 16000 probes x 2 implementations | agree with each other and with the reference; nothing raised |
+| | *the files themselves are other people's saves and are not in this repository; the harness takes paths, so the row is reproducible with your own* | |
+| differential fuzz vs. node | 5000 generated inputs x 4 transports x 2 implementations (`tools/fuzz_against_node.py`) | identical |
+| malformed-input fuzz | 16000 probes x 2 implementations (same harness, `--junk`) | agree with each other and with the reference; nothing raised |
 | mutation testing | 10 deliberate defects reintroduced one at a time | 9 caught by the suite; the 10th turned out to be dead code and was deleted |
 | Linux, host architecture | built and run in `python:3.12.11-slim-bullseye`, the target image (`tools/check_linux.sh`) | 251 passed |
 | Linux, x86_64 | the same, cross-compiled, run under emulation (`tools/check_linux.sh linux/amd64`) | 251 passed |
