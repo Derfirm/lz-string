@@ -5,10 +5,13 @@ request handler, and the cheap remedy for that is to run the call in a thread �
 nothing whatsoever if the extension holds the GIL for the whole call: the worker thread
 holds the interpreter and every other request waits exactly as before.
 
-Both tests here calibrate themselves against the machine they run on. An earlier version
-counted turns against a fixed threshold and passed on a laptop while failing in a container,
-where the same payload decoded in half a millisecond — a test that measures the machine
-rather than the code.
+Both tests calibrate themselves against the machine they run on, by comparing the turns a
+neighbouring thread gets during the call with the turns it gets while ordinary Python code
+runs for the same time. Two earlier versions did not, and both failed somewhere the property
+held perfectly well: one counted turns against a fixed threshold and fell over in a
+container where the payload decoded in half a millisecond, the other compared wall-clock
+time for one call against two and fell over on a two-core runner. Elapsed time measures the
+scheduler; turns measure whether the interpreter was available, which is the actual claim.
 """
 
 from __future__ import annotations
@@ -52,45 +55,34 @@ def _count_turns(during) -> int:
     return turns
 
 
-def test_the_interpreter_stays_available_during_a_decompress() -> None:
+def _turns_against(work) -> tuple[int, int]:
+    """Turns a spinning thread gets while `work()` runs, and while Python runs as long."""
+    during = _count_turns(work)
+
     elapsed = time.perf_counter()
-    turns_during_call = _count_turns(lambda: lz.decompress_from_base64(PAYLOAD))
+    _count_turns(work)
     elapsed = time.perf_counter() - elapsed
 
-    # The same wall time spent in Python instead: the neighbour then competes for the GIL
-    # rather than having it, so this is the floor a released GIL has to clear.
     def busy() -> None:
         until = time.perf_counter() + elapsed
         while time.perf_counter() < until:
             pass
 
-    turns_against_python = _count_turns(busy)
+    return during, _count_turns(busy)
 
-    assert turns_during_call >= turns_against_python * 0.5, (
-        f"the neighbour got {turns_during_call} turns while the extension ran and "
-        f"{turns_against_python} against ordinary Python code — the GIL is being held"
+
+def test_the_interpreter_stays_available_during_a_decompress() -> None:
+    during_call, against_python = _turns_against(lambda: lz.decompress_from_base64(PAYLOAD))
+    assert during_call >= against_python * 0.5, (
+        f"the neighbour got {during_call} turns while the extension ran and "
+        f"{against_python} against ordinary Python code — the GIL is being held"
     )
 
 
-def _time(work) -> float:
-    start = time.perf_counter()
-    work()
-    return time.perf_counter() - start
-
-
-def _both_at_once() -> None:
-    threads = [threading.Thread(target=lambda: lz.compress_to_base64(TEXT)) for _ in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-
-def test_two_compressions_overlap() -> None:
-    # Best of three, because scheduling noise only ever makes a run slower: if the calls
-    # overlap at all, one of three attempts will show it, and if the GIL is held none will.
-    # A single attempt failed on a busy container while the property held perfectly well.
-    alone = min(_time(lambda: lz.compress_to_base64(TEXT)) for _ in range(3))
-    together = min(_time(_both_at_once) for _ in range(3))
-
-    assert together < alone * 1.7, f"two calls took {together:.2f}s against {alone:.2f}s for one"
+def test_the_interpreter_stays_available_during_a_compress() -> None:
+    # Compression is the longer of the two, so this is where holding the GIL would hurt most.
+    during_call, against_python = _turns_against(lambda: lz.compress_to_base64(TEXT))
+    assert during_call >= against_python * 0.5, (
+        f"the neighbour got {during_call} turns while the extension ran and "
+        f"{against_python} against ordinary Python code — the GIL is being held"
+    )
