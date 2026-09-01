@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install (builds the extension)
+        run: pip install -e ".[dev]"
+      - run: pytest
+
+  corpus:
+    # The golden vectors are generated, and the generator is deterministic. Regenerating
+    # them must therefore change nothing — if it does, the reference moved, and that is a
+    # fact worth seeing in a diff rather than discovering as a mysterious test failure.
+    name: the corpus still reproduces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm --prefix tools ci || npm --prefix tools install
+      - run: node tools/gen_vectors.mjs
+      - name: Nothing changed
+        run: git diff --exit-code -- tests/data/vectors.jsonl.gz
+
+  deployment-image:
+    # The package is installed into python:3.12-slim-bullseye, whose glibc is older than any
+    # runner's. An extension built here loads there only if it was built there — see
+    # tools/check_linux.sh.
+    name: builds and passes in the deployment image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tools/check_linux.sh

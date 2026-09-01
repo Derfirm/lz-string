@@ -1,0 +1,9 @@
+# The extension links with Py_* symbols left unresolved; they are found in the interpreter at
+# load time. This lives at the repository root rather than in rust/ because cargo looks for
+# its config relative to the working directory, and maturin runs it from the root — from
+# rust/ the file is still found, since cargo searches ancestors too.
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
