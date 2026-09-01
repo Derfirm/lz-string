@@ -62,6 +62,10 @@ impl BitStream {
     fn read_past_the_end(&self) -> bool {
         self.index > self.values.len()
     }
+
+    fn len(&self) -> usize {
+        self.values.len()
+    }
 }
 
 /// `None` means "not an lz-string payload"; `Some(empty)` means the stream ran out.
@@ -71,8 +75,15 @@ pub fn decompress(values: Vec<u32>, width: u32) -> Option<Vec<u16>> {
     }
     let mut stream = BitStream::new(values, width);
 
-    // Entries 0..2 are the reserved tokens and are never looked up as text.
-    let mut dictionary: Vec<Vec<u16>> = vec![Vec::new(), Vec::new(), Vec::new()];
+    // The dictionary holds ranges into `result` rather than copies of the entries. Every
+    // entry is a run that has already been written out — the one defined each round is the
+    // previous entry plus the first unit of this one, and those sit next to each other in
+    // the output — so an entry is (offset, length) and never a buffer of its own. Cloning a
+    // Vec per token instead costs an allocation and a copy on every one of the million-odd
+    // tokens a large save decodes to.
+    let mut result: Vec<u16> = Vec::with_capacity(stream.len() * 2);
+    let mut dictionary: Vec<(usize, usize)> = vec![(0, 0), (0, 0), (0, 0)];
+
     let first = match stream.read(2) {
         0 => stream.read(8) as u16,
         1 => stream.read(16) as u16,
@@ -82,9 +93,9 @@ pub fn decompress(values: Vec<u32>, width: u32) -> Option<Vec<u16>> {
         _ => return None,
     };
 
-    dictionary.push(vec![first]);
-    let mut result: Vec<u16> = vec![first];
-    let mut w: Vec<u16> = vec![first];
+    result.push(first);
+    dictionary.push((0, 1));
+    let mut w: (usize, usize) = (0, 1);
     let mut enlarge_in: u32 = 4;
     let mut dict_size: usize = 4;
     let mut num_bits: u32 = 3;
@@ -94,14 +105,14 @@ pub fn decompress(values: Vec<u32>, width: u32) -> Option<Vec<u16>> {
             return Some(Vec::new());
         }
         let mut code = stream.read(num_bits) as usize;
+        let mut fresh_unit = None;
         match code {
             0 | 1 => {
-                let unit = if code == 0 {
+                fresh_unit = Some(if code == 0 {
                     stream.read(8)
                 } else {
                     stream.read(16)
-                } as u16;
-                dictionary.push(vec![unit]);
+                } as u16);
                 code = dict_size;
                 dict_size += 1;
                 enlarge_in -= 1;
@@ -115,21 +126,27 @@ pub fn decompress(values: Vec<u32>, width: u32) -> Option<Vec<u16>> {
             num_bits += 1;
         }
 
-        let entry = if code < dictionary.len() {
-            dictionary[code].clone()
+        // Write the entry this token stands for, and note where it landed.
+        let at = result.len();
+        if let Some(unit) = fresh_unit {
+            // A unit seen for the first time: its entry is the single character itself.
+            result.push(unit);
+            dictionary.push((at, 1));
+        } else if code < dictionary.len() {
+            let (offset, length) = dictionary[code];
+            result.extend_from_within(offset..offset + length);
         } else if code == dict_size {
-            // The standard LZW case: the entry being defined by this very token.
-            let mut entry = w.clone();
-            entry.push(w[0]);
-            entry
+            // The standard LZW case: the entry this very token is about to define.
+            result.extend_from_within(w.0..w.0 + w.1);
+            result.push(result[w.0]);
         } else {
             return None;
-        };
+        }
+        let entry = (at, result.len() - at);
 
-        result.extend_from_slice(&entry);
-        let mut new_entry = w;
-        new_entry.push(entry[0]);
-        dictionary.push(new_entry);
+        // The entry defined this round is the previous one plus the first unit of this one,
+        // which is exactly the run starting where the previous entry did, one unit longer.
+        dictionary.push((w.0, w.1 + 1));
         dict_size += 1;
         enlarge_in -= 1;
         w = entry;

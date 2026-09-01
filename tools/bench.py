@@ -55,7 +55,10 @@ def timed(work, *args):
 
 def main(argv: list[str]) -> None:
     if argv:
-        cases = [(Path(p).name[:18], lz.decompress_from_base64(Path(p).read_text()) or "") for p in argv]
+        cases = [
+            (Path(p).name[:18], lz.decompress_from_base64(Path(p).read_text(encoding="utf-8")) or "")
+            for p in argv
+        ]
     else:
         cases = [(f"{n} items", save_shaped(n)) for n in (200, 2_000, 20_000, 60_000)]
 

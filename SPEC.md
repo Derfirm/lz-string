@@ -164,8 +164,8 @@ between runs on the same machine. `tools/bench.py` reproduces them.
 
 | payload | PyPI `lzstring` | the reference, in Python | what ships |
 |---|---|---|---|
-| decompress 259 KB | 3.25 s | 0.21 s | 0.08 s |
-| decompress 1.8 MB | 22.1 s | 4.60 s | 0.45 s |
+| decompress 259 KB | 3.25 s | 0.21 s | 0.01 s |
+| decompress 1.8 MB | 22.1 s | 4.60 s | 0.13 s |
 | compress 259 KB | 1.13 s | 0.83 s | 0.27 s |
 | compress 1.8 MB | 13.8 s | 10.5 s | 5.23 s |
 

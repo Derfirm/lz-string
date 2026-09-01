@@ -68,7 +68,7 @@ target image, or produce a manylinux wheel.
 
 | | decompress 259 KB | decompress 1.8 MB | compress 259 KB |
 |---|---|---|---|
-| this package | 0.08 s | 0.45 s | 0.27 s |
+| this package | 0.01 s | 0.13 s | 0.27 s |
 | *(`lzstring` 1.0.4, for scale)* | 3.25 s | 22.1 s | 1.13 s |
 
 Compression comes from the [`lz-str`](https://crates.io/crates/lz-str) crate. Decompression

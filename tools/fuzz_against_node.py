@@ -153,7 +153,8 @@ def check_files(paths: list[str]) -> int:
     for name, module in IMPLEMENTATIONS:
         decoded = recompressed = 0
         for path in paths:
-            text = module.decompress_from_base64(Path(path).read_text(errors="surrogatepass"))
+            raw = Path(path).read_text(encoding="utf-8", errors="surrogatepass")
+            text = module.decompress_from_base64(raw)
             if text is None or digest(text) != oracle[path]["decompressed"]:
                 failures += 1
                 print(f"  [{name}] decompressed differently: {Path(path).name}")

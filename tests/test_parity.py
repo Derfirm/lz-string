@@ -98,9 +98,13 @@ def test_damaged_input_decodes_the_same_either_way(function: str) -> None:
 
 
 def test_a_trimmed_padding_character_still_reads() -> None:
-    """The crate refuses this; the extension retries with the character put back.
+    """The crate refuses this; our decoder does not have to.
 
-    Realistic because the last character carries no data: anything that strips trailing
+    Nothing puts the character back — the tolerance is structural. The bit reader returns
+    zeros past the end of the stream and stops on the length check between tokens, exactly
+    as the reference does, so the missing character is simply read as the padding it was.
+
+    Realistic because that character carries no data: anything that strips trailing
     whitespace or truncates by one byte produces exactly this file.
     """
     payload = lz.compress_to_base64('{"a":1,"b":[1,2,3],"c":"hello world"}')
@@ -120,3 +124,24 @@ def test_characters_outside_the_alphabet_read_as_zero_bits() -> None:
     junked = body + "!" * (len(payload) - len(body))
     assert lz.decompress_from_base64(junked) == lz.decompress_from_base64(payload)
     assert lz.decompress_from_base64(junked) == _reference.decompress_from_base64(junked)
+
+
+def test_the_extension_refuses_a_buffer_that_is_not_code_units() -> None:
+    """Odd-length input is an error, not a rounding.
+
+    The extension speaks UTF-16LE bytes, so an odd length cannot be code units. Truncating
+    instead — which is what `chunks_exact` does on its own — made `compress(b"A")` return
+    the compression of an empty string: a wrong answer with no signal. The Python wrapper
+    cannot produce such a buffer, but the extension is importable and this is its contract.
+    """
+    from lz_string import _native
+
+    for call, argument in (
+        (_native.compress, b"A"),
+        (_native.compress_to_base64, b"A"),
+        (_native.decompress, b"A"),
+        (_native.decompress_from_base64, b"A"),
+        (_native.decompress_from_utf16, b"abc"),
+    ):
+        with pytest.raises(ValueError, match="even"):
+            call(argument)
