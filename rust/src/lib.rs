@@ -1,20 +1,19 @@
-//! Compression comes from the `lz-str` crate; decompression is ours (see `decode`).
+//! The bindings. Both halves of the codec are ours: `encode` and `decode`.
 //!
-//! The crate's compressor is byte-identical to the JavaScript reference on every payload
-//! measured — 1202 golden vectors, 5000 fuzzed inputs, 38 real saves — apart from base64
-//! padding, corrected below. Its decompressor is not: it skips characters outside the
-//! alphabet where the reference reads them as zero bits and still counts them, and it
-//! collapses the reference's two distinct failures into one answer. Both matter only on
-//! damaged input, and both are invisible until you fuzz against node.
+//! This module is the boundary and nothing more — it turns Python's bytes into code units,
+//! hands them to the codec with the interpreter released, and turns the answer back. The
+//! transports differ only in how many bits a character carries and which alphabet spells
+//! them, so that mapping lives here too.
 //!
 //! Every string crosses the FFI boundary as UTF-16LE bytes, decoders included: pyo3 cannot
 //! build a Rust `&str` from a Python string holding a lone surrogate, and would raise
-//! UnicodeEncodeError where the reference simply answers. lz-string is defined over UTF-16 code
+//! UnicodeEncodeError where the reference simply answers. Lone surrogates are ordinary input
+//! here — a Twine journal is made of them — so Python does the decoding with
+//! `errors="surrogatepass"` rather than letting Rust rebuild a String and lose them. lz-string is defined over UTF-16 code
 //! units and real saves carry lone surrogates — a Degrees of Lewdity journal is made of
-//! them — so the crate returns `Vec<u16>` and Python does the decoding with
-//! `errors="surrogatepass"`. `String::from_utf16_lossy` here would replace such a unit with
-//! U+FFFD and destroy the save it was in.
+
 mod decode;
+mod encode;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -26,6 +25,10 @@ use pyo3::types::PyBytes;
 /// ("=" and "$"), which the reference maps to 64, a value no six-bit read can return. Zero
 /// bits, but still one character of the length the decoder may read: that difference is what
 /// makes skipping such a character wrong.
+/// The alphabets, as tables for the encoder; `shared_value` below is their inverse.
+const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const URI: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+
 fn shared_value(c: u32) -> u32 {
     match c {
         0x41..=0x5A => c - 0x41,      // A-Z
@@ -106,30 +109,44 @@ fn answer(py: Python<'_>, units: Option<Vec<u16>>) -> Option<Py<PyBytes>> {
 #[pyfunction]
 fn compress(py: Python<'_>, data: &[u8]) -> PyResult<Py<PyBytes>> {
     let units = to_units(data)?;
-    let out = py.detach(|| lz_str::compress(units));
-    Ok(from_units(py, out))
+    // 16 bits per character: the values are the code units themselves.
+    let values = py.detach(|| encode::compress(&units, 16));
+    Ok(from_units(
+        py,
+        values.into_iter().map(|v| v as u16).collect(),
+    ))
 }
 
 #[pyfunction]
 fn compress_to_base64(py: Python<'_>, data: &[u8]) -> PyResult<String> {
     let units = to_units(data)?;
-    let packed = py.detach(|| lz_str::compress_to_base64(units));
-    // lz-str appends one "=" too many; re-pad by the reference's rule.
-    let packed = packed.trim_end_matches('=');
-    let padding = (4 - packed.len() % 4) % 4;
-    Ok(format!("{packed}{}", "=".repeat(padding)))
+    let values = py.detach(|| encode::compress(&units, 6));
+    let mut packed: String = values.iter().map(|&v| BASE64[v as usize] as char).collect();
+    // Padded to a multiple of four, as the reference does, and for the same reason: what
+    // comes out has to be valid base64.
+    packed.push_str(&"=".repeat((4 - packed.len() % 4) % 4));
+    Ok(packed)
 }
 
 #[pyfunction]
 fn compress_to_encoded_uri_component(py: Python<'_>, data: &[u8]) -> PyResult<String> {
     let units = to_units(data)?;
-    Ok(py.detach(|| lz_str::compress_to_encoded_uri_component(units)))
+    let values = py.detach(|| encode::compress(&units, 6));
+    Ok(values.iter().map(|&v| URI[v as usize] as char).collect())
 }
 
 #[pyfunction]
 fn compress_to_utf16(py: Python<'_>, data: &[u8]) -> PyResult<String> {
     let units = to_units(data)?;
-    Ok(py.detach(|| lz_str::compress_to_utf16(units)))
+    let values = py.detach(|| encode::compress(&units, 15));
+    // The offset keeps every character printable, and the trailing space is part of the
+    // format: the reference appends one unconditionally.
+    let mut out: String = values
+        .iter()
+        .map(|&v| char::from_u32(v + 32).expect("15 bits plus 32 is always a character"))
+        .collect();
+    out.push(' ');
+    Ok(out)
 }
 
 #[pyfunction]

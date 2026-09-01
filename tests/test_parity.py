@@ -1,9 +1,9 @@
 """The shipped extension against the Python reference, where it is hardest to be right.
 
 The corpus proves both agree with JavaScript on well-formed payloads. This file is about
-the other half: damaged input, where the crate underneath the extension does not agree with
-the reference on its own and had to be corrected (SPEC.md §7). Those corrections live in
-Rust, so nothing here can paper over them from Python.
+the other half: damaged input, where the answers are easy to get subtly wrong and where two
+independent ports agreeing is real evidence. Both halves of the codec are ours now, so this
+is the check that the fast one and the readable one say the same thing.
 """
 
 from __future__ import annotations
@@ -41,10 +41,11 @@ def test_identical_bytes_on_real_shapes(variant: str, compress_name: str, decomp
 
 
 def test_base64_padding_follows_the_reference() -> None:
-    """lz-str pads base64 with one "=" too many; the extension re-pads.
+    """Padding is part of the format, and the two implementations must agree on it.
 
-    Kept as its own test because it is a divergence in a third-party crate: if a future
-    version fixes it, this fails loudly rather than leaving a silent double correction.
+    The reference pads to a multiple of four and nothing else; the crate this package used
+    to wrap appended one "=" too many, which is the sort of thing that goes unnoticed until
+    a payload is compared byte for byte rather than round-tripped.
     """
     for text in ["", "a", "ab", "abc", "gold" * 10, "x" * 1000]:
         packed = lz.compress_to_base64(text)

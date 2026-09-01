@@ -66,15 +66,20 @@ one built on Debian bookworm (glibc 2.36) will not load on bullseye (2.31), whic
 fails at import with `GLIBC_2.34 not found`, not at build time. Either build inside the
 target image, or produce a manylinux wheel.
 
-| | decompress 259 KB | decompress 1.8 MB | compress 259 KB |
-|---|---|---|---|
-| this package | 0.01 s | 0.13 s | 0.27 s |
-| *(`lzstring` 1.0.4, for scale)* | 3.25 s | 22.1 s | 1.13 s |
+On two real saves, best of three in one run:
 
-Compression comes from the [`lz-str`](https://crates.io/crates/lz-str) crate. Decompression
-is ours: the crate answers the same thing for two failures the reference keeps apart, skips
-characters the reference reads as zero bits, and refuses a payload whose trailing padding
-character was trimmed. SPEC.md §7 has the measurements.
+| | decompress | compress |
+|---|---|---|
+| **this package**, 259 KB → 975 K chars | **0.004 s** | **0.044 s** |
+| `lzstring` 1.0.4, the same | 1.199 s | 0.312 s |
+| **this package**, 1.8 MB → 13.4 M chars | **0.054 s** | **1.547 s** |
+| `lzstring` 1.0.4, the same | 8.581 s | 4.766 s |
+
+Both halves are ours, and the only Rust dependency is pyo3. The obvious alternative,
+the [`lz-str`](https://crates.io/crates/lz-str) crate, was the starting point and did not
+survive contact with damaged input: it answers the same thing for two failures the reference
+keeps apart, skips characters the reference reads as zero bits, and refuses a payload whose
+trailing padding character was trimmed. SPEC.md §7 has the measurements.
 
 A pure-Python implementation of the whole format lives in `src/lz_string/_reference.py`.
 It is the test suite's second opinion, not a fallback: nothing imports it at runtime.

@@ -1,7 +1,7 @@
 //! The decoder, ported from the JavaScript reference rather than wrapped.
 //!
-//! `lz-str` is kept for compression, where it is byte-identical to the reference, but its
-//! decoder answers `None` for two different failures that the reference keeps apart:
+//! The obvious alternative, the `lz-str` crate, answers `None` for two different failures
+//! that the reference keeps apart:
 //!
 //!   * the stream ran out before the end marker — a truncated or nonsense payload, `""`;
 //!   * a token named a dictionary entry no encoder could have written — not an lz-string

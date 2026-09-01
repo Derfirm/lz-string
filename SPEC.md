@@ -142,11 +142,9 @@ found by fuzzing against the reference rather than by reading the code:
 The package is a compiled extension and nothing else; `pip install` builds it, and an
 install without it is an install that did not finish.
 
-- **compression** comes from the [`lz-str`](https://crates.io/crates/lz-str) crate. It is
-  byte-identical to the reference everywhere measured, apart from base64 padding (§7).
-- **decompression is ours** (`rust/src/decode.rs`), ported from the reference rather than
-  wrapped. The crate's decoder answers the same thing for two failures the reference keeps
-  apart, and that distinction cannot be recovered from outside its loop — see §4.
+- **both halves are ours** — `rust/src/decode.rs` and `rust/src/encode.rs`, ported from the
+  reference rather than wrapped around a crate. The package has no Rust dependencies beyond
+  pyo3. Why not [`lz-str`](https://crates.io/crates/lz-str), which exists and does this: §7.
 - every string crosses the FFI boundary as **UTF-16LE bytes**, decoders included. pyo3
   cannot build a Rust `&str` from a Python string holding a lone surrogate and raises
   where the reference answers; and `String::from_utf16_lossy` coming back would replace such
@@ -159,17 +157,27 @@ against both, and the golden corpus holds both to JavaScript.
 
 ## 6. Performance
 
-Measured on an M-series laptop; the ratios matter, the absolute numbers move by up to 2.5×
-between runs on the same machine. `tools/bench.py` reproduces them.
+One run, best of three, on two real saves, with everything measured the same way — the
+earlier numbers in this file were stitched together from separate sessions and one of them
+had tracemalloc running, which is its own lesson.
 
-| payload | PyPI `lzstring` | the reference, in Python | what ships |
+| payload | this package | the reference, in Python | PyPI `lzstring` |
 |---|---|---|---|
-| decompress 259 KB | 3.25 s | 0.21 s | 0.01 s |
-| decompress 1.8 MB | 22.1 s | 4.60 s | 0.13 s |
-| compress 259 KB | 1.13 s | 0.83 s | 0.27 s |
-| compress 1.8 MB | 13.8 s | 10.5 s | 5.23 s |
+| decompress 259 KB → 975 K characters | **0.004 s** | 0.064 s | 1.199 s |
+| compress those 975 K characters | **0.044 s** | 0.207 s | 0.312 s |
+| decompress 1.8 MB → 13.4 M characters | **0.054 s** | 0.453 s | 8.581 s |
+| compress those 13.4 M characters | **1.547 s** | 3.878 s | 4.766 s |
 
-Peak memory on that 1.8 MB payload (13 MB of text): 38 MiB compiled, 71 MiB in Python.
+`tools/bench.py FILE...` reproduces it. Absolute times on a laptop move by a factor of two
+between runs; the columns are what matters.
+
+Two structural choices account for most of it, and both were the same mistake in different
+places: **the dictionary is not keyed by the string it matched.** The reference builds `w + c`
+and looks that up, which in a typed language means a fresh buffer per prefix; the decoder
+here stores each entry as a range into the output it has already written, and the encoder
+keys its dictionary by `(code of w, c)` — two integers. Removing the per-token copy took
+decompression from 0.45 s to 0.13 s on the large save before the machine settled; keying the
+encoder by integers took compression from 5.2 s to 1.5 s.
 
 **The extension releases the interpreter** while it works (`Python::detach` around every
 call's Rust half; the argument is copied into owned data first). This is load-bearing rather
@@ -179,11 +187,7 @@ holds the GIL. Measured before the change, a neighbouring Python thread got 2 tu
 0.26 s decompression and two compressions in two threads took exactly as long as one after
 the other; after it, about half a million turns and 1.86 s against 2.86 s.
 
-Decompression is where the old package loses: it rebuilds a 65-entry reverse alphabet
-**per character** and reads the stream one bit at a time. Compression is dominated by the
-LZW dictionary itself, which is why neither a Python rewrite nor Rust changes it by much —
-the ceiling there is a data-structure question (keying by `(prefix id, unit)` rather than by
-string), not a language one.
+Peak memory on the 1.8 MB payload: 38 MiB compiled, 71 MiB in Python.
 
 ## 7. Divergences in other implementations
 
@@ -213,12 +217,16 @@ emoji in a character name, a nickname, a journal entry.
 
 ### `lz-str` 0.2.1 (crates.io, Rust)
 
-Its **compressor** has one: it appends one `=` too many to base64 (701 of 1202 vectors; the
-payload before the padding is identical in every one). Corrected where it is produced, in
-`compress_to_base64`, and pinned by `tests/test_parity.py`, so a release that fixes it
-upstream fails loudly rather than being corrected twice.
+This package started as a wrapper around it and no longer depends on it at all. The reasons
+are worth keeping, because they are the reasons anyone reaching for that crate should know.
 
-Its **decompressor** has three, which is why this package does not use it:
+Its **compressor** is byte-identical to the reference except for base64 padding: it appends
+one `=` too many (701 of 1202 vectors; the payload before the padding is identical in every
+one). Correct output, then, but it inherits the reference's string-keyed dictionary, which
+allocates a buffer per prefix — compression through it took 4.8 s where the encoder here
+takes 1.5 s.
+
+Its **decompressor** has three problems, which is what made wrapping it untenable:
 
 - it **skips a character outside the alphabet** instead of reading it as zero bits while
   still counting it — the mirror of the bug in §4, and it shifts every following bit;
@@ -229,8 +237,8 @@ Its **decompressor** has three, which is why this package does not use it:
 
 Wrapping around those from Python meant routing suspect payloads back to a Python decoder —
 which works, but leaves the shipped package half implemented in the slow language on exactly
-the inputs where being right matters. The decoder in `rust/src/decode.rs` is about 120 lines
-and has none of the three.
+the inputs where being right matters. The decoder here is about 130 lines and has none of the
+three; once the encoder followed, for speed, the dependency had nothing left to do.
 
 The one correction still applied to the crate — the base64 padding — lives where the
 padding is produced, in `rust/src/lib.rs`, and is pinned by `tests/test_parity.py`, so a
