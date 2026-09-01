@@ -5,7 +5,7 @@ requires = ["maturin>=1.9,<2"]
 build-backend = "maturin"
 
 [project]
-name = "lz-string"
+name = "lzstring-codec"
 version = "0.1.0"
 description = "lz-string for Python, held byte-for-byte to the JavaScript original"
 readme = "README.md"
@@ -13,7 +13,7 @@ license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY.md"]
 requires-python = ">=3.12"
 authors = [{ name = "Andrew Grinevich", email = "beulea@gmail.com" }]
-keywords = ["lz-string", "lzstring", "compression", "lzw", "savegame", "utf-16"]
+keywords = ["lz-string", "lzstring", "lzstring-codec", "compression", "lzw", "savegame", "utf-16"]
 dependencies = []
 
 classifiers = [

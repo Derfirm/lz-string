@@ -1,6 +1,10 @@
-# lz-string
+# lzstring-codec
 
 lz-string for Python, held byte-for-byte to the JavaScript original.
+
+Installed as `lzstring-codec`, imported as `lz_string`. The obvious name is not available:
+PyPI refuses it as too similar to `lzstring`, which is one of the two packages this exists
+to replace.
 
 It exists because the package that *is* on PyPI gets the format wrong in ways that quietly
 corrupt real save files. It was written for [saveeditor.online](https://saveeditor.online),
@@ -43,6 +47,10 @@ How far that was pushed, because "it round-trips" is not the same as "it is righ
 
 The last row is the one that found bugs — two of them in this package, both invisible to
 every check above it, and both now pinned by tests. SPEC.md §4 says what they were.
+
+And it is not the only one: `py-lzstring` 0.1.1, a separate port of the same reference,
+differs from it on **295 of the same 1202 vectors**, first on exactly the same astral
+character. Two independent Python ports, the same mistake in both.
 
 See [SPEC.md](SPEC.md) for the format itself and for the full divergence table.
 
@@ -101,7 +109,7 @@ astral characters stop being corrupted, and `decompressFromUTF16` starts working
 ```bash
 uv sync --extra dev                      # .python-version pins 3.12, as in production
 uv run pytest                            # every test runs against both implementations
-uv sync --reinstall-package lz-string    # after touching the Rust: rebuild the extension
+uv sync --reinstall-package lzstring-codec   # after touching the Rust: rebuild it
 ./tools/check_linux.sh                   # built and run inside the target image (needs docker)
 ./tools/check_linux.sh linux/amd64       # and on production's architecture, cross-compiled
 ```

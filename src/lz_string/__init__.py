@@ -22,7 +22,7 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("lz-string")
+    __version__ = version("lzstring-codec")
 except PackageNotFoundError:  # running from a checkout that was never installed
     __version__ = "0.0.0+source"
 

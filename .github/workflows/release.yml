@@ -62,7 +62,7 @@ jobs:
         if: matrix.platform.target == 'x86_64' && matrix.platform.runner == 'ubuntu-latest'
         run: |
           uv venv --python 3.12
-          uv pip install --no-index --find-links dist lz-string
+          uv pip install --no-index --find-links dist lzstring-codec
           .venv/bin/python -c "import lz_string as lz; assert lz.decompress_from_base64(lz.compress_to_base64('ok')) == 'ok'"
       - uses: actions/upload-artifact@v4
         with:

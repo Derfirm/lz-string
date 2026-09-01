@@ -215,6 +215,15 @@ The player's emoji comes back as U+F600, a private-use character. Any Python cod
 writes saves through that package corrupts every save containing an astral character —
 emoji in a character name, a nickname, a journal entry.
 
+### `py-lzstring` 0.1.1 (PyPI, pure Python)
+
+A separate port of the same reference, by a different author, and it makes the same mistake:
+**295 of 1202 vectors** compress differently, 320 for the raw transport, and the first
+divergence is again an astral character. Nothing was borrowed between it and `lzstring`
+1.0.4 as far as the counts suggest — 294 against 295 — which is the point worth taking from
+it. Iterating a Python string is the obvious way to port this code, and the obvious way is
+wrong.
+
 ### `lz-str` 0.2.1 (crates.io, Rust)
 
 This package started as a wrapper around it and no longer depends on it at all. The reasons

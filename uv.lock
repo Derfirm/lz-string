@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lz-string"
+name = "lzstring-codec"
 version = "0.1.0"
 source = { editable = "." }
 
