@@ -1,0 +1,84 @@
+name: release
+
+# Wheels on a tag, and the upload behind a manual approval.
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# The upload step needs one secret, PYPI_API_TOKEN, on the `pypi` environment. Trusted
+# publishing (OIDC, no token at all) is the better answer once the project exists on PyPI:
+# drop the token, add `permissions: id-token: write`, and delete the `password:` line.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  wheels:
+    name: wheels ${{ matrix.platform.target }} on ${{ matrix.platform.runner }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runner: ubuntu-latest, target: x86_64 }
+          - { runner: ubuntu-latest, target: aarch64 }
+          - { runner: macos-latest, target: aarch64 }
+          - { runner: macos-13, target: x86_64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist
+          sccache: "true"
+          # manylinux2014 is glibc 2.17, older than anything this is likely to be installed
+          # into. A wheel built against a newer glibc compiles cleanly and then fails at
+          # import with "GLIBC_2.xx not found" — see SPEC.md and tools/check_linux.sh.
+          manylinux: "2014"
+      - name: The wheel imports and round-trips
+        # Only where the runner can execute what it just built; the cross-compiled ones are
+        # exercised by the deployment-image job in ci.yml instead.
+        if: matrix.platform.target == 'x86_64' && matrix.platform.runner == 'ubuntu-latest'
+        run: |
+          uv venv --python 3.12
+          uv pip install --no-index --find-links dist lz-string
+          uv run --no-project python -c "import lz_string as lz; assert lz.decompress_from_base64(lz.compress_to_base64('ok')) == 'ok'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.runner }}-${{ matrix.platform.target }}
+          path: dist
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  publish:
+    name: publish to PyPI
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    # An environment so the upload waits for a human, and so the token lives in one place.
+    environment: pypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}

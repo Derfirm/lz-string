@@ -18,13 +18,12 @@ import random
 
 import pytest
 
-import lz_string as lz
 from lz_string._reference import _from_units as as_code_points
 from tests.conftest import VARIANTS
 
 SEED = int(os.environ.get("LZSTRING_SEED", "20260901"))
 
-GRINNING = chr(0x1F600)               # one Python character
+GRINNING = chr(0x1F600)  # one Python character
 HIGH, LOW = chr(0xD83D), chr(0xDE00)  # ... and the two UTF-16 units JavaScript sees
 
 

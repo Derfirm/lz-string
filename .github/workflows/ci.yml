@@ -16,13 +16,30 @@ jobs:
         python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python }}
+          enable-cache: true
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install (builds the extension)
-        run: pip install -e ".[dev]"
-      - run: pytest
+      - name: Sync (builds the extension)
+        run: uv sync --extra dev --python ${{ matrix.python }}
+      - run: uv run pytest
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      # uvx rather than `uv run`: linting has no business building the extension first.
+      - run: uvx ruff check src tests tools
+      - run: uvx ruff format --check src tests tools
+      - run: cargo fmt --manifest-path rust/Cargo.toml --check
+      - run: cargo clippy --manifest-path rust/Cargo.toml --release --all-targets -- -D warnings
 
   corpus:
     # The golden vectors are generated, and the generator is deterministic. Regenerating

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pytest
 
-import lz_string as lz
 from tests.conftest import VARIANTS, groups, vectors
 
 
@@ -25,19 +24,23 @@ def _fail(kind: str, row: dict, expected: str, got: str) -> str:
 @pytest.mark.parametrize("group", groups())
 @pytest.mark.parametrize("variant", [v[0] for v in VARIANTS])
 def test_compress_matches_the_reference(implementation, group: str, variant: str) -> None:
-    compress = getattr(implementation, dict((v[0], v[1]) for v in VARIANTS)[variant])
+    compress = getattr(implementation, {v[0]: v[1] for v in VARIANTS}[variant])
     for row in vectors(group):
         got = compress(row["input"])
-        assert got == row[variant], _fail(f"{variant} compress via {implementation.__name__}", row, row[variant], got)
+        assert got == row[variant], _fail(
+            f"{variant} compress via {implementation.__name__}", row, row[variant], got
+        )
 
 
 @pytest.mark.parametrize("group", groups())
 @pytest.mark.parametrize("variant", [v[0] for v in VARIANTS])
 def test_decompress_matches_the_reference(implementation, group: str, variant: str) -> None:
-    decompress = getattr(implementation, dict((v[0], v[2]) for v in VARIANTS)[variant])
+    decompress = getattr(implementation, {v[0]: v[2] for v in VARIANTS}[variant])
     for row in vectors(group):
         got = decompress(row[variant])
-        assert got == row["input"], _fail(f"{variant} decompress via {implementation.__name__}", row, row["input"], got or "")
+        assert got == row["input"], _fail(
+            f"{variant} decompress via {implementation.__name__}", row, row["input"], got or ""
+        )
 
 
 def test_corpus_is_the_one_we_think_it_is(corpus_header: dict) -> None:
@@ -54,9 +57,9 @@ def test_corpus_covers_what_it_claims_to() -> None:
     assert covered >= {
         "codeunit-sweep",  # all 65536 code units, surrogates included
         "lone-surrogate",  # what a Degrees of Lewdity journal is made of
-        "unicode",         # astral characters: one Python char, two JavaScript ones
-        "save-shaped",     # the shape our own uploads arrive in
-        "large",           # dictionary growth past the numBits steps
+        "unicode",  # astral characters: one Python char, two JavaScript ones
+        "save-shaped",  # the shape our own uploads arrive in
+        "large",  # dictionary growth past the numBits steps
     }
     assert any(len(row["input"]) > 100_000 for row in vectors()), "no large vector left"
     surrogates = [row for row in vectors("lone-surrogate")]

@@ -48,8 +48,8 @@ except ImportError as error:  # pragma: no cover - the message is the point
     detail = str(error)
     raise ImportError(
         f"lz_string could not load its compiled extension: {detail}. "
-        "Build it with `pip install .` (or ./tools/build_rust.sh), on the same platform "
-        "and C library it will run on."
+        "Build it with `uv sync` (or `pip install .`), on the same platform and C library "
+        "it will run on."
     ) from error
 
 
@@ -130,15 +130,15 @@ class LZString:
         return compress(uncompressed)
 
     @staticmethod
-    def compressToBase64(uncompressed: str | None) -> str:  # noqa: N802 - mirrors the JS name
+    def compressToBase64(uncompressed: str | None) -> str:
         return compress_to_base64(uncompressed)
 
     @staticmethod
-    def compressToUTF16(uncompressed: str | None) -> str:  # noqa: N802
+    def compressToUTF16(uncompressed: str | None) -> str:
         return compress_to_utf16(uncompressed)
 
     @staticmethod
-    def compressToEncodedURIComponent(uncompressed: str | None) -> str:  # noqa: N802
+    def compressToEncodedURIComponent(uncompressed: str | None) -> str:
         return compress_to_encoded_uri_component(uncompressed)
 
     @staticmethod
@@ -146,13 +146,13 @@ class LZString:
         return decompress(compressed)
 
     @staticmethod
-    def decompressFromBase64(compressed: str | None) -> str | None:  # noqa: N802
+    def decompressFromBase64(compressed: str | None) -> str | None:
         return decompress_from_base64(compressed)
 
     @staticmethod
-    def decompressFromUTF16(compressed: str | None) -> str | None:  # noqa: N802
+    def decompressFromUTF16(compressed: str | None) -> str | None:
         return decompress_from_utf16(compressed)
 
     @staticmethod
-    def decompressFromEncodedURIComponent(compressed: str | None) -> str | None:  # noqa: N802
+    def decompressFromEncodedURIComponent(compressed: str | None) -> str | None:
         return decompress_from_encoded_uri_component(compressed)

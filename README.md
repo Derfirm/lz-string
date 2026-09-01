@@ -52,9 +52,9 @@ The package is a compiled extension; `pip install` builds it, and a Rust toolcha
 required to do so.
 
 ```bash
-pip install git+ssh://git@github.com/Derfirm/lz-string.git   # or a checkout:
-pip install .                  # maturin builds the extension into the package
-./tools/build_rust.sh          # or, for working in the checkout: -> src/lz_string/
+uv add git+ssh://git@github.com/Derfirm/lz-string.git    # or, in a checkout:
+uv sync                                                  # builds the extension in place
+pip install .                                            # pip works too; maturin does the build
 ```
 
 An import without the extension raises rather than falling back to something slower and
@@ -94,8 +94,9 @@ astral characters stop being corrupted, and `decompressFromUTF16` starts working
 ## Tests
 
 ```bash
-python -m venv .venv && ./.venv/bin/pip install -e ".[dev]"
-./.venv/bin/python -m pytest             # every test runs against both implementations
+uv sync --extra dev
+uv run pytest                            # every test runs against both implementations
+uv sync --reinstall-package lz-string    # after touching the Rust: rebuild the extension
 ./tools/check_linux.sh                   # built and run inside the target image (needs docker)
 ./tools/check_linux.sh linux/amd64       # and on production's architecture, cross-compiled
 ```

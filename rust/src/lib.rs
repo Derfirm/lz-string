@@ -28,14 +28,14 @@ use pyo3::types::PyBytes;
 fn six_bit_value(unit: u16, uri: bool) -> u32 {
     let c = u32::from(unit);
     match c {
-        0x41..=0x5A => c - 0x41,           // A-Z
-        0x61..=0x7A => c - 0x61 + 26,      // a-z
-        0x30..=0x39 => c - 0x30 + 52,      // 0-9
-        0x2B => 62,                        // "+"
+        0x41..=0x5A => c - 0x41,      // A-Z
+        0x61..=0x7A => c - 0x61 + 26, // a-z
+        0x30..=0x39 => c - 0x30 + 52, // 0-9
+        0x2B => 62,                   // "+"
         // A payload that travelled through a query string has its "+" turned into a space.
         0x20 if uri => 62,
-        0x2F if !uri => 63,                // "/"
-        0x2D if uri => 63,                 // "-"
+        0x2F if !uri => 63, // "/"
+        0x2D if uri => 63,  // "-"
         _ => 0,
     }
 }
@@ -101,13 +101,19 @@ fn decompress(py: Python<'_>, data: &[u8]) -> Option<Py<PyBytes>> {
 
 #[pyfunction]
 fn decompress_from_base64(py: Python<'_>, data: &[u8]) -> Option<Py<PyBytes>> {
-    let values: Vec<u32> = to_units(data).into_iter().map(|u| six_bit_value(u, false)).collect();
+    let values: Vec<u32> = to_units(data)
+        .into_iter()
+        .map(|u| six_bit_value(u, false))
+        .collect();
     answer(py, py.detach(|| decode::decompress(values, 6)))
 }
 
 #[pyfunction]
 fn decompress_from_encoded_uri_component(py: Python<'_>, data: &[u8]) -> Option<Py<PyBytes>> {
-    let values: Vec<u32> = to_units(data).into_iter().map(|u| six_bit_value(u, true)).collect();
+    let values: Vec<u32> = to_units(data)
+        .into_iter()
+        .map(|u| six_bit_value(u, true))
+        .collect();
     answer(py, py.detach(|| decode::decompress(values, 6)))
 }
 

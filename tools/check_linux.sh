@@ -41,7 +41,7 @@ echo "2/2 running the suite in the deployment image"
 docker run --rm --platform "$target" -v "$root":/w python:3.12.11-slim-bullseye sh -c '
   set -e
   mkdir -p /build && cp -r /w/src /w/tests /w/pyproject.toml /build/
-  cp /w/.linux_native.so /build/src/lz_string/_native.so
+  cp /w/.linux_native.so /build/src/lz_string/_native.abi3.so
   cd /build && pip -q install pytest >/dev/null 2>&1
   python -m pytest'
 

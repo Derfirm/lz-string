@@ -37,6 +37,7 @@ __all__ = (
     "decompress_from_utf16",
 )
 
+
 def _to_units(text: str) -> str:
     """Split astral characters into their UTF-16 halves.
 
@@ -49,7 +50,7 @@ def _to_units(text: str) -> str:
     if text.isascii() or max(text) <= "\uffff":
         return text
     units = text.encode("utf-16-le", "surrogatepass")
-    return "".join(map(chr, unpack("<%dH" % (len(units) // 2), units)))
+    return "".join(map(chr, unpack(f"<{len(units) // 2}H", units)))
 
 
 def _from_units(text: str) -> str:
@@ -63,6 +64,7 @@ def _from_units(text: str) -> str:
 
 KEY_BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 KEY_URI = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$"
+
 
 class _BitTable(dict):
     """Translation table char -> bits. A character outside the alphabet reads as zeros.
@@ -196,7 +198,7 @@ def _compress_stream(text: str) -> list[str]:
     out: list[str] = []
 
     def write(value: int, width: int) -> None:
-        out.append(format(value, "0%db" % width)[::-1])
+        out.append(format(value, f"0{width}b")[::-1])
 
     def write_new_char(char: str, num_bits: int) -> None:
         code_unit = ord(char)

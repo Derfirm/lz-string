@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import pytest
 
-import lz_string as lz
-
 
 @pytest.fixture
 def payload(implementation) -> str:
@@ -81,11 +79,15 @@ def test_the_last_character_is_padding(implementation, payload: str) -> None:
     # The encoder always flushes one more character than the stream needs, so dropping it
     # changes nothing. This is why two implementations can differ in the tail and both be
     # right, and why the round-trip tests compare payloads rather than files.
-    assert implementation.decompress_from_base64(payload.rstrip("=")[:-1]) == implementation.decompress_from_base64(payload)
+    assert implementation.decompress_from_base64(
+        payload.rstrip("=")[:-1]
+    ) == implementation.decompress_from_base64(payload)
 
 
 def test_trailing_junk_after_the_end_marker_is_ignored(implementation, payload: str) -> None:
-    assert implementation.decompress_from_base64(payload + "AAAA") == implementation.decompress_from_base64(payload)
+    assert implementation.decompress_from_base64(payload + "AAAA") == implementation.decompress_from_base64(
+        payload
+    )
 
 
 def test_uri_variant_accepts_a_payload_that_travelled_through_a_query_string(implementation) -> None:

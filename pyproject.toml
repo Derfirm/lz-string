@@ -32,7 +32,7 @@ Issues = "https://github.com/Derfirm/lz-string/issues"
 Specification = "https://github.com/Derfirm/lz-string/blob/master/SPEC.md"
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 # A mixed layout: Python under src/, the crate under rust/. maturin builds the extension
 # straight into the package, so `pip install` yields something that works rather than half

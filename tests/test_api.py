@@ -76,6 +76,6 @@ def test_compat_class_round_trips_through_each_pair() -> None:
 def test_the_three_return_types_are_what_the_contract_says() -> None:
     # A caller distinguishing "empty save" from "broken file" relies on exactly this.
     assert isinstance(lz.decompress_from_base64(lz.compress_to_base64("x")), str)
-    assert lz.decompress_from_base64("") is None      # nothing to decode
-    assert lz.decompress_from_base64("+") is None     # not an lz-string payload
-    assert lz.decompress_from_base64("A") == ""       # ran out before the end marker
+    assert lz.decompress_from_base64("") is None  # nothing to decode
+    assert lz.decompress_from_base64("+") is None  # not an lz-string payload
+    assert lz.decompress_from_base64("A") == ""  # ran out before the end marker
