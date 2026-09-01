@@ -94,7 +94,7 @@ astral characters stop being corrupted, and `decompressFromUTF16` starts working
 ## Tests
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev                      # .python-version pins 3.12, as in production
 uv run pytest                            # every test runs against both implementations
 uv sync --reinstall-package lz-string    # after touching the Rust: rebuild the extension
 ./tools/check_linux.sh                   # built and run inside the target image (needs docker)
