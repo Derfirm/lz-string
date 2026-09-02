@@ -64,7 +64,7 @@ jobs:
           uv venv --python 3.12
           uv pip install --no-index --find-links dist lzstring-codec
           .venv/bin/python -c "import lz_string as lz; assert lz.decompress_from_base64(lz.compress_to_base64('ok')) == 'ok'"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform.runner }}-${{ matrix.platform.target }}
           path: dist
@@ -77,7 +77,7 @@ jobs:
         with:
           command: sdist
           args: --out dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-sdist
           path: dist
