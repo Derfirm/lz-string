@@ -1,174 +1,142 @@
 # lzstring-codec
 
-lz-string for Python, held byte-for-byte to the JavaScript original.
+lz-string for Python that agrees with the JavaScript original, byte for byte.
 
-Installed as `lzstring-codec`, imported as `lz_string`. The obvious name is not available:
-PyPI refuses it as too similar to `lzstring`, which is one of the two packages this exists
-to replace.
-
-It exists because the package that *is* on PyPI gets the format wrong in ways that quietly
-corrupt real save files. It was written for [saveeditor.online](https://saveeditor.online),
-which reads a few thousand lz-string saves a week and cannot afford to hand any of them back
-altered.
+```bash
+pip install lzstring-codec      # or: uv add lzstring-codec
+```
 
 ```python
 import lz_string as lz
 
-lz.compress_to_base64('{"gold":9000}')          # 'N4Ig5g9gNgJiBcBOADKgvkA='
-lz.decompress_from_base64(_)                    # '{"gold":9000}'
+lz.compress_to_base64('{"gold":9000}')     # 'N4Ig5g9gNgJiBcBOADKgvkA='
+lz.decompress_from_base64(_)               # '{"gold":9000}'
 ```
 
-## Why
+Installed as `lzstring-codec`, imported as `lz_string`. The obvious distribution name is not
+available: PyPI refuses it as too similar to `lzstring`, which is one of the packages this
+exists to replace.
 
-`lzstring` 1.0.4 on PyPI is a line-by-line transliteration of the JavaScript, and it
-inherits neither its speed nor its correctness. Measured against 1202 vectors produced by
-`lz-string` 1.5.0 on npm — the library the games themselves use:
+## Why it exists
 
-- **294 vectors compress to different bytes**, because it walks Python code points where
-  the format is defined over UTF-16 code units. In practice: an emoji in a player's name is
-  written truncated, and the game reads back `U+F600`, a private-use box. Every save with an
-  astral character is corrupted on write.
-- **`decompressFromUTF16` raises `TypeError` on every input.** It subtracts an integer from
-  a string. The function has never worked.
-- Decompression rebuilds a 65-entry alphabet table *per character* and reads the bit stream
-  one bit at a time: **22 seconds** for a 1.8 MB save, on the request path.
+The two lz-string ports already on PyPI corrupt save files, quietly, in the same way:
 
-This package is byte-identical to the reference on all 1202 vectors, in all four
-transports, in both directions, on both backends — and 15–45× faster.
-
-How far that was pushed, because "it round-trips" is not the same as "it is right":
-
-| check | scale | result |
-|---|---|---|
-| golden corpus vs. node | 1202 vectors x 4 transports x 2 directions x 2 backends | identical |
-| real production saves | 38 files up to 1.8 MB, decompress **and** recompress | identical |
-| differential fuzz vs. node | 5000 generated inputs x 4 transports x 2 backends | identical |
-| malformed-input fuzz | 16000 probes x 2 backends | agree with each other and with the reference; nothing raised |
-
-The last row is the one that found bugs — two of them in this package, both invisible to
-every check above it, and both now pinned by tests. SPEC.md §4 says what they were.
-
-And it is not the only one: `py-lzstring` 0.1.1, a separate port of the same reference,
-differs from it on **295 of the same 1202 vectors**, first on exactly the same astral
-character. Two independent Python ports, the same mistake in both.
-
-See [SPEC.md](SPEC.md) for the format itself and for the full divergence table.
-
-## Installing
-
-The package is a compiled extension; `pip install` builds it, and a Rust toolchain is
-required to do so.
-
-```bash
-uv add git+ssh://git@github.com/Derfirm/lz-string.git    # or, in a checkout:
-uv sync                                                  # builds the extension in place
-pip install .                                            # pip works too; maturin does the build
+```python
+>>> import lzstring                                  # the package on PyPI
+>>> s = lzstring.LZString()
+>>> s.decompressFromBase64(s.compressToBase64('{"name":"Marie 😀"}'))
+'{"name":"Marie \uf600"}'      # U+F600, a private-use box
 ```
 
-An import without the extension raises rather than falling back to something slower and
-subtly different.
+The emoji is gone, replaced by a private-use character the game will draw as an empty box.
+Nothing raises; the save is simply not the one the player had.
 
-**Build it where it will run.** The binary is tied to the C library it was linked against:
-one built on Debian bookworm (glibc 2.36) will not load on bullseye (2.31), which is what
-`python:3.12.11-slim-bullseye` — the image this package is destined for — is built on. It
-fails at import with `GLIBC_2.34 not found`, not at build time. Either build inside the
-target image, or produce a manylinux wheel.
+The cause is a single mismatch. lz-string is defined over UTF-16 code units, which is what a
+JavaScript string is made of; a Python string is a sequence of code points. Below U+FFFF the
+two agree, so most saves survive and the bug stays invisible — but an emoji is one Python
+character and two JavaScript ones, and written whole into a field that holds sixteen bits it
+comes back truncated. Both `lzstring` 1.0.4 and `py-lzstring` 0.1.1, written by different
+people, make exactly this mistake. It is the obvious way to port the code, and it is wrong.
 
-On two real saves, best of three in one run:
+This package converts at the boundary instead, so an emoji survives — and so does a lone
+surrogate half, which is legal in this format and which a Twine journal is full of.
+
+## What "correct" means here
+
+That every function returns what the JavaScript library returns, for the same input, in the
+same bytes. Not "it round-trips": a codec can round-trip perfectly with itself and still hand
+the game something it cannot read.
+
+So the oracle is the reference itself — `lz-string` 1.5.0 on npm, the library the games
+compress with — asked directly by running it in node, across all four transports and both
+directions, over inputs chosen to be awkward: every one of the 65536 code units, lone
+surrogates in every position, astral characters, and the shape of a real save.
+
+Two things that are easy not to think about, and are checked:
+
+- **Damaged payloads.** A truncated file, a stray character, a header the format cannot
+  produce — the reference distinguishes "the stream ran out" from "this was never a payload",
+  and a caller cares which. Fuzzing that boundary against node is what found the last two
+  bugs in this package, both invisible to every test that used only valid data.
+- **The interpreter is released** while the extension works, so running a call in a thread
+  actually unblocks the caller. Holding the GIL through a multi-second compression would make
+  the obvious remedy do nothing at all.
+
+[SPEC.md](SPEC.md) is the format written down: the bit stream, the contract on damaged input,
+and where every other implementation departs from it.
+
+## Fast, because of one decision
+
+Both halves are compiled, and neither keys its dictionary by the string it matched. The
+reference builds `w + c` and looks that up, which in a typed language means an allocation per
+prefix; the decoder here stores each entry as a range into the output it has already written,
+and the encoder keys its dictionary by `(code of w, unit)` — two integers. On two real saves:
 
 | | decompress | compress |
 |---|---|---|
-| **this package**, 259 KB → 975 K chars | **0.004 s** | **0.044 s** |
-| `lzstring` 1.0.4, the same | 1.199 s | 0.312 s |
-| **this package**, 1.8 MB → 13.4 M chars | **0.054 s** | **1.547 s** |
-| `lzstring` 1.0.4, the same | 8.581 s | 4.766 s |
+| **lzstring-codec**, 259 KB → 975 K chars | **0.004 s** | **0.044 s** |
+| `lzstring` 1.0.4, the same file | 1.199 s | 0.312 s |
+| **lzstring-codec**, 1.8 MB → 13.4 M chars | **0.054 s** | **1.547 s** |
+| `lzstring` 1.0.4, the same file | 8.581 s | 4.766 s |
 
-Both halves are ours, and the only Rust dependency is pyo3. The obvious alternative,
-the [`lz-str`](https://crates.io/crates/lz-str) crate, was the starting point and did not
-survive contact with damaged input: it answers the same thing for two failures the reference
-keeps apart, skips characters the reference reads as zero bits, and refuses a payload whose
-trailing padding character was trimmed. SPEC.md §7 has the measurements.
-
-A pure-Python implementation of the whole format lives in `src/lz_string/_reference.py`.
-It is the test suite's second opinion, not a fallback: nothing imports it at runtime.
+`tools/bench.py FILE...` reproduces it on your own payloads.
 
 ## Migrating from `lzstring`
 
-The camelCase API is provided as-is, so the change is one import line:
+One import line — the camelCase class exists for exactly this:
 
-```python
+```diff
 -from lzstring import LZString
 +from lz_string import LZString
 ```
 
-Two behaviour changes to know about, both improvements, both in SPEC.md: saves containing
-astral characters stop being corrupted, and `decompressFromUTF16` starts working.
+Two behaviour changes, both improvements: saves with astral characters stop being corrupted,
+and `decompressFromUTF16`, which raised `TypeError` on every input it was ever given, works.
 
-## Tests
-
-```bash
-uv sync --extra dev                      # .python-version pins 3.12, as in production
-uv run pytest                            # every test runs against both implementations
-uv sync --reinstall-package lzstring-codec   # after touching the Rust: rebuild it
-./tools/check_linux.sh                   # built and run inside the target image (needs docker)
-./tools/check_linux.sh linux/amd64       # and on production's architecture, cross-compiled
-```
-
-The Linux run is not ceremony. It is done in `python:3.12.11-slim-bullseye` — the exact image
-this is destined for — and it has already caught two things a laptop cannot: a test that
-measured the machine rather than the code, and an extension that built cleanly and then
-refused to load because it wanted a newer glibc than the image has.
-
-251 tests: the golden corpus per category and transport, the documented behaviour on damaged
-input, seeded round-trips over random code units and surrogate halves, parity between the
-shipped extension and the Python reference — including a fuzz of malformed payloads, which
-is what pins the three corrections the crate underneath needed — and two tests that the
-extension really does let go of the interpreter while it works.
-
-To regenerate the corpus (deterministic — a diff means the reference moved):
+## Working on it
 
 ```bash
-npm --prefix tools install
-node tools/gen_vectors.mjs
+uv sync --extra dev                          # builds the extension in place
+uv run pytest                                # every behavioural test runs twice: against the
+                                             # extension and against the Python reference
+uv sync --reinstall-package lzstring-codec   # after touching the Rust
+./tools/check_linux.sh                       # and the whole suite inside the deployment image
 ```
 
-`tools/bench.py` reproduces the numbers above.
+`src/lz_string/_reference.py` is a complete implementation in Python. It is the suite's
+second opinion, not a fallback: nothing imports it at runtime, and a disagreement between it
+and the extension fails a test instead of reaching someone's save.
+
+The Linux run is not ceremony. It builds inside `python:3.12.11-slim-bullseye` — the image
+this package is destined for — because an extension linked against a newer glibc compiles
+cleanly and then refuses to load, which is a thing to find out before a deploy rather than
+during one.
+
+Two more harnesses, both needing node: `tools/gen_vectors.mjs` regenerates the golden corpus
+(deterministic — a diff means the reference moved), and `tools/fuzz_against_node.py` goes
+wider than the corpus, over generated inputs, damaged payloads, and real files you point it
+at.
 
 ## Releasing
 
-By tag, not by merge. Most merges here are documentation and CI, and PyPI refuses a second
-upload of the same version — publishing on merge would mean either a version bump per commit
-or a release job that fails as a matter of course.
+By tag. Bump `version` in `pyproject.toml`, note it in `CHANGELOG.md`, then:
 
 ```bash
-# bump `version` in pyproject.toml, note it in CHANGELOG.md, merge, then:
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-The workflow builds wheels for linux and macOS on both architectures plus an sdist, checks
-that the tag and the version in pyproject.toml agree, and only then uploads.
-`workflow_dispatch` runs everything except the upload, which is how the pipeline is tested
-without releasing anything.
-
-The upload needs a credential, and there are two ways to give it one. Either works; the
-first stores nothing.
-
-**Trusted publishing.** On PyPI, add a pending publisher for the project name with owner
-`Derfirm`, repository `lz-string`, workflow `release.yml`, environment `pypi`. Nothing to
-configure here — with no `PYPI_API_TOKEN` secret set, the publish step already exchanges a
-short-lived OIDC token, which is what it tries today and what fails with "Trusted publishing
-exchange failure" until the publisher exists.
-
-**A token.** Create an environment named `pypi` in the repository settings, put an API token
-in it as `PYPI_API_TOKEN`, and re-run the publish job of the tagged release. Protection
-rules on that environment are where you add an approval step if you want one.
+The workflow refuses a tag that disagrees with the version, builds wheels for Linux and macOS
+on both architectures plus an sdist, uploads, and then asks PyPI whether the version is
+really there — an upload that uploaded nothing exits zero otherwise. `workflow_dispatch` runs
+all of it except the upload, which is how the pipeline is tested without releasing anything.
 
 ## Provenance and licence
 
-MIT (`LICENSE`). Compression comes from the [`lz-str`](https://crates.io/crates/lz-str)
-crate and the bindings from [pyo3](https://pyo3.rs), both MIT/Apache-2.0; the decoder is a
-port of [pieroxy/lz-string](https://github.com/pieroxy/lz-string), MIT, which is also the
-reference every claim here is measured against. See `THIRD_PARTY.md`.
+MIT (`LICENSE`). The only dependency is [pyo3](https://pyo3.rs) (MIT/Apache-2.0); both halves
+of the codec are ports of [pieroxy/lz-string](https://github.com/pieroxy/lz-string) (MIT),
+which is also the reference every claim here is measured against. `THIRD_PARTY.md` carries
+the notices, and SPEC.md §7 explains why the obvious Rust dependency was dropped rather than
+wrapped.
 
-No user data lives in this repository: every test input is generated, and the corpus is the
+No user data is in this repository: every test input is generated, and the corpus is the
 reference implementation's own output.
