@@ -110,4 +110,16 @@ jobs:
         with:
           packages-dir: dist
           password: ${{ secrets.PYPI_API_TOKEN }}
+          # Kept for recovering from a partial upload — but it also means an upload that
+          # uploaded nothing reports success, so the step below checks the result rather
+          # than the exit code.
           skip-existing: true
+      - name: The version is really on PyPI
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for attempt in 1 2 3 4 5; do
+            files=$(curl -sf "https://pypi.org/pypi/lzstring-codec/$version/json" | jq '.urls | length') && break
+            echo "not there yet (attempt $attempt)"; sleep 10
+          done
+          echo "$version has ${files:-0} files on PyPI"
+          test "${files:-0}" -ge 5
