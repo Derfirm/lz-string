@@ -32,6 +32,16 @@ Two consequences the API here is built around:
    Degrees of Lewdity journal is made of them. Anything that routes a value through UTF-8
    without `errors="surrogatepass"` destroys such a save.
 
+**This applies to callers too, not only to implementations of the format.** Anything that
+walks the characters of data that came out of here — a cipher, a checksum, a length limit —
+has to walk code units for the same reason, because whatever wrote that data was JavaScript
+and did. The mistake has now been made twice in front of this package: by two independent
+Python ports of lz-string, and by a save-editor XOR layer written on top of this one *after*
+the ports had been diagnosed. It read a plugin's `{"name":"Marie <U+1F600>"}` as
+`{"name":"Marie <U+36A00>"}`, a different character, and would have written back something
+the plugin could not undo. Convert at the boundary: `text.encode("utf-16-le",
+"surrogatepass")`, work on the units, decode back.
+
 **Normalisation.** Decompression returns code units regrouped into code points, so
 compressing `chr(0xD83D) + chr(0xDE00)` and decompressing gives back the single character
 U+1F600. No unit is lost or altered; only their grouping, which JavaScript could not have
