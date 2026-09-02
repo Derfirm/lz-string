@@ -32,6 +32,7 @@ Homepage = "https://github.com/Derfirm/lz-string"
 Source = "https://github.com/Derfirm/lz-string"
 Issues = "https://github.com/Derfirm/lz-string/issues"
 Specification = "https://github.com/Derfirm/lz-string/blob/master/SPEC.md"
+Changelog = "https://github.com/Derfirm/lz-string/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]

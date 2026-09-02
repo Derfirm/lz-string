@@ -1,5 +1,10 @@
 # lzstring-codec
 
+[![PyPI](https://img.shields.io/pypi/v/lzstring-codec)](https://pypi.org/project/lzstring-codec/)
+[![Python](https://img.shields.io/pypi/pyversions/lzstring-codec)](https://pypi.org/project/lzstring-codec/)
+[![CI](https://github.com/Derfirm/lz-string/actions/workflows/ci.yml/badge.svg)](https://github.com/Derfirm/lz-string/actions/workflows/ci.yml)
+[![Licence](https://img.shields.io/pypi/l/lzstring-codec)](LICENSE)
+
 lz-string for Python that agrees with the JavaScript original, byte for byte.
 
 ```bash

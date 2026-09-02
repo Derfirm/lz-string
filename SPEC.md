@@ -87,8 +87,8 @@ decoder walks off the end of.
 **The tail is don't-care.** Those padding bits carry nothing, so two encoders can emit
 different final characters and both be right. Compare payloads, not files: the same input
 compressed by different implementations may differ in the last character or two and still
-decompress identically. The savefile-editor round-trip tests are written that way for
-exactly this reason.
+decompress identically. A round-trip test that demands byte equality of the *file* will fail
+for no reason; compare what it decompresses to.
 
 **`=` in the base64 alphabet.** `KEY_BASE64` has 65 entries: the reference maps `=` to the
 value 64, and 64 AND any six-bit mask is zero — so padding contributes zero bits while still
@@ -281,5 +281,5 @@ inputs, incompressible noise, and payloads up to 250 KB.
 
 The malformed-input fuzz is the one that found real bugs — three of them, two in this
 package. Everything above it passed while they were still there. Mutation testing is what
-says the tests that now cover them can actually fail: a suite that cannot go red is the
-failure mode that produced GitLab #72 in the project this was written for.
+says the tests that now cover them can actually fail. A suite that cannot go red is worse
+than no suite: it costs the same to run and buys confidence it has not earned.
